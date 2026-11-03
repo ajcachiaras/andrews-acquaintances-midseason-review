@@ -217,7 +217,9 @@ function table(host, players, sortKey = 'pts', dir = -1) {
 
 /* ---------- shared chrome ---------- */
 function nav(current) {
-  const items = [['index.html', 'Overview', null], ...POS_ORDER.map(p => [p.toLowerCase() + '.html', POS_NAME[p], p])];
+  const items = [['index.html', 'Overview', null],
+    ...POS_ORDER.map(p => [p.toLowerCase() + '.html', POS_NAME[p], p]),
+    ['teams.html', 'Teams', null]];
   return `<nav class="tabs">${items.map(([href, text, pos]) =>
     `<a href="${href}"${href === current ? ' aria-current="page"' : ''}>${
       pos ? `<span class="swatch" style="background:${POS_COLOR[pos]}"></span>` : ''}${text}</a>`).join('')}</nav>`;

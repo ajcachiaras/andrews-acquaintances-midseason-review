@@ -73,9 +73,12 @@ function renderOverview() {
     const t = teams[p.by] || (teams[p.by] = { id: p.by, cost: 0, pts: 0, n: 0 });
     t.cost += p.cost; t.pts += p.pts; t.n += 1;
   });
+  // Sorted by production, not by points per dollar: every team had the same
+  // budget, and unspent auction money is forfeited (waivers are a separate
+  // pool), so per-dollar efficiency rewards skipping the draft.
   const teamRows = Object.values(teams)
     .map(t => ({ ...t, ppd: t.cost ? t.pts / t.cost : 0, out: REVIEW.eliminated[t.id] }))
-    .sort((a, b) => b.ppd - a.ppd);
+    .sort((a, b) => b.pts - a.pts);
 
   const miniRow = p => `<tr>
     <td><span class="who">${esc(p.name)}</span><br><span class="meta">${p.pos} &middot; ${esc(teamName(p.by))}</span></td>
@@ -132,14 +135,15 @@ function renderOverview() {
   </section>
 
   <section>
-    <h2>Draft efficiency by team</h2>
-    <p class="sub">Total production from a team's drafted players against the dollars it spent on them.
-    Eliminated teams are marked &mdash; their players kept scoring for whoever picked them up.</p>
+    <h2>Best drafts</h2>
+    <p class="sub">Points produced by each team's eight picks. Every team had the same budget, so this is
+    the like-for-like comparison &mdash; <a href="teams.html">the full ranking, spend against return, and
+    where each team's money went</a> are on the Teams page.</p>
     <div class="tablewrap"><table><thead><tr><th>#</th><th>Team</th><th>Spent</th><th>Players</th><th>Points</th><th>Pts / $</th></tr></thead>
-      <tbody>${teamRows.map((t, i) => `<tr>
+      <tbody>${teamRows.slice(0, 5).map((t, i) => `<tr>
         <td>${i + 1}</td>
         <td><span class="who">${esc(teamName(t.id))}</span>${t.out ? `<br><span class="meta">out in week ${t.out}</span>` : ''}</td>
-        <td>$${t.cost}</td><td>${t.n}</td><td>${fmt1(t.pts)}</td><td>${fmt2(t.ppd)}</td></tr>`).join('')}
+        <td>${money(t.cost)}</td><td>${t.n}</td><td>${fmt1(t.pts)}</td><td>${fmt2(t.ppd)}</td></tr>`).join('')}
       </tbody></table></div>
   </section>
   ${footer()}`;

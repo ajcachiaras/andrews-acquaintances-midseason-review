@@ -133,6 +133,9 @@ svg { display: block; width: 100%; height: auto; overflow: visible; }
 /* Two across at most: three panels of ~250px shrank the axis type to about 4px. */
 .facets { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
 
+.legend { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin: 12px 2px 4px; font-size: .85rem; color: var(--text-secondary); }
+.legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
 /* --- table --- */
 .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
 table { border-collapse: collapse; width: 100%; font-size: .9rem; }

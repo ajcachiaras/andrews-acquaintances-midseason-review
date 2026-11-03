@@ -13,8 +13,9 @@ Companion to the [Guillotine Watch tracker](https://github.com/ajcachiaras/andre
 
 | Page | What's on it |
 |---|---|
-| `index.html` | League-wide: price-against-production for all four positions, the ten best and worst buys, and draft efficiency per team |
+| `index.html` | League-wide: price-against-production for all four positions, the ten best and worst buys, and the top five drafts |
 | `qb.html` / `rb.html` / `wr.html` / `te.html` | That position ranked, with the price/production scatter, the paid-as-playing-as bars, and a sortable table |
+| `teams.html` | All nineteen teams ranked by what their eight picks produced, plus spend-against-return, per-dollar efficiency, and how each team split its budget across positions |
 
 Each positional page carries three views of the same players: a scatter of price
 against points with that position's own market line, a diverging bar of places
@@ -38,6 +39,23 @@ happened.
 The scatter's dashed line is a per-position least-squares fit of points against
 price, kept as a *visual* market reference (above it is a profit, below it is
 not) rather than as a per-player verdict.
+
+### For teams
+
+Teams are ranked by **total production from their eight picks**, not by points
+per dollar. Every team had the same $200, and unspent auction money is
+forfeited — waivers run on a separate $400 pool, so leftover bids carry nothing
+forward. Ranking by per-dollar efficiency therefore rewards skipping the draft:
+Max's team spent $30, tops the efficiency table at 11.89 pts/$, and finished
+dead last on production having been eliminated in week 2.
+
+Both numbers are on the page — the efficiency chart is there, with that caveat
+stated beside it, and the spend-against-return scatter exists mainly to make an
+underspend visible rather than flattering.
+
+Draft value and survival are deliberately separate: Russini's Side Piece has the
+best draft on this measure and was eliminated in week 8. A cut team's players
+keep scoring for whoever claimed them, which is still what the draft bought.
 
 ## What counts
 
