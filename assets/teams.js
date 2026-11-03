@@ -2,6 +2,16 @@
 
 const BUDGET = 200;   // per-team auction budget; waivers are a separate pool
 
+/* Where a pick sits in his own position's pool, on a 0-100 scale: 100 is the
+   best player drafted at that position, 0 the worst. Normalising by pool size
+   is the whole point -- 19 tight ends were drafted against 60 receivers, so a
+   raw rank of 15 means something very different at each, and a raw sum quietly
+   rewards a tight-end-heavy roster. */
+function posPercentile(p) {
+  if (!p.posN || p.posN < 2) return 50;
+  return ((p.posN - p.ptsRank) / (p.posN - 1)) * 100;
+}
+
 function teamRows() {
   const t = {};
   REVIEW.players.forEach(p => {
@@ -23,7 +33,7 @@ function teamRows() {
     // better. avgPct is the same thing normalised by pool size, kept for the
     // tooltip because the pools are very different (19 TEs against 60 WRs).
     rankSum: r.picks.reduce((s, p) => s + p.ptsRank, 0),
-    avgPct: r.picks.reduce((s, p) => s + p.ptsRank / p.posN, 0) / r.picks.length,
+    squadPct: r.picks.reduce((s, p) => s + posPercentile(p), 0) / r.picks.length,
     perSpent: r.cost ? r.pts / r.cost : 0,
     perBudget: r.pts / BUDGET,
     unspent: BUDGET - r.cost,
@@ -34,14 +44,14 @@ function teamRows() {
 function teamTip(r) {
   const mix = [...r.picks]
     .sort((a, b) => POS_ORDER.indexOf(a.pos) - POS_ORDER.indexOf(b.pos) || a.ptsRank - b.ptsRank)
-    .map(p => `${p.pos}${p.ptsRank}`).join(' · ');
+    .map(p => `${p.pos}${p.ptsRank} of ${p.posN}`).join(' · ');
   return `<b>${esc(r.name)}</b>
     <div class="row">${fmt1(r.pts)} pts from ${r.n} picks</div>
     <div class="row">${money(r.cost)} spent${r.unspent > 0 ? `, ${money(r.unspent)} left unspent` : ''}</div>
     <div class="row">${fmt2(r.perSpent)} pts per $ spent &middot; ${fmt2(r.perBudget)} per $ of budget</div>
     <div class="row">${r.beat} of ${r.n} picks beating their price</div>
-    <div class="row">rank sum ${r.rankSum} &mdash; ${mix}</div>
-    <div class="row">average ${Math.round(r.avgPct * 100)}th percentile at his position</div>
+    <div class="row">squad score ${fmt1(r.squadPct)} of 100 &middot; raw rank sum ${r.rankSum}</div>
+    <div class="row">${mix}</div>
     ${r.out ? `<div class="row">eliminated in week ${r.out}</div>` : ''}`;
 }
 
@@ -53,13 +63,14 @@ const shortTeam = name => name.split(' ')[0];
 
 /* Ranked horizontal bars. One series, so no legend -- the title names it. */
 function teamBars(host, rows, pick, opts = {}) {
-  const { color = 'var(--pos-qb)', fmtVal = fmt1, note = () => '', colorFor = null } = opts;
+  const { color = 'var(--pos-qb)', fmtVal = fmt1, note = () => '', colorFor = null,
+          domainMax = null } = opts;
   const narrow = narrowHost(host);
   const rowH = narrow ? 22 : 26, padT = 10, padB = 34;
   const padL = narrow ? 104 : 184, padR = narrow ? 46 : 62;
   const W = narrow ? 350 : 760, H = padT + padB + rows.length * rowH;
   const pw = W - padL - padR;
-  const hi = Math.max(...rows.map(pick), 1);
+  const hi = domainMax || Math.max(...rows.map(pick), 1);
   const X = v => (v / hi) * pw;
 
   // Axis ticks drop a trailing .0 (600, not 600.0); the value beside each bar
@@ -243,14 +254,16 @@ function renderTeams() {
   </section>
 
   <section>
-    <h2>Sum of positional ranks</h2>
-    <p class="sub">Each team's eight picks added up by where they rank at their own position &mdash;
-    QB4 plus RB19 plus WR27 and so on. No money in it at all: just how good the players turned out to be.
-    <strong>Lower is better</strong>, so the shortest bar is the best squad. Hover a bar for the full
-    breakdown. One caveat the measure can't dodge: the pools are different sizes, so a tight end can't rank
-    worse than ${byPos('TE').length} while a receiver can rank ${byPos('WR').length}th &mdash; a TE-heavy
-    team flatters itself here. The tooltip also gives each team's average percentile, which corrects for
-    that; it moves most teams by two places or fewer.</p>
+    <h2>Squad quality</h2>
+    <p class="sub">Where each team's eight picks rank at their own positions, with no money in it at all
+    &mdash; just how good the players turned out to be. Each pick scores 100 if he is the best player
+    drafted at his position and 0 if he is the worst, and the bar is the team's average, so
+    <strong>longer is better</strong>. The axis runs to a full 100: nobody is close, because nobody drafts
+    the top player at every slot.</p>
+    <p class="sub">Normalised by pool size on purpose. ${byPos('TE').length} tight ends were drafted
+    against ${byPos('WR').length} receivers, so a raw rank of 15 is mid-pack at one position and nearly
+    last at the other &mdash; adding raw ranks quietly rewards a tight-end-heavy roster. Hover a bar for
+    every pick's rank and pool, plus the raw sum.</p>
     <div class="card"><div id="ranksum"></div></div>
   </section>
 
@@ -291,9 +304,10 @@ function renderTeams() {
       colorFor: r => r.out ? 'var(--text-muted)' : 'var(--pos-qb)',
       fmtVal: fmt1, note: r => r.out ? `  (out wk ${r.out})` : ''
     });
-    // Ascending: lowest rank sum is the best squad, so it leads.
-    teamBars(document.getElementById('ranksum'), [...rows].sort((a, b) => a.rankSum - b.rankSum),
-      r => r.rankSum, { color: 'var(--accent)', fmtVal: v => String(Math.round(v)) });
+    // Best squad first, and the axis runs to a full 100 rather than to the
+    // leader, so the bars show how far short of a perfect draft everyone fell.
+    teamBars(document.getElementById('ranksum'), [...rows].sort((a, b) => b.squadPct - a.squadPct),
+      r => r.squadPct, { color: 'var(--accent)', fmtVal: fmt1, domainMax: 100 });
     teamScatter(document.getElementById('scatter'), rows, { exclude: offChart });
     teamBars(document.getElementById('eff'), byEff, r => r.perSpent, {
       color: 'var(--pos-wr)', fmtVal: fmt2, note: r => `  (${money(r.cost)})`
@@ -317,7 +331,8 @@ const TEAM_COLS = [
   { k: 'pts', h: 'Points', num: true, cell: r => fmt1(r.pts) },
   { k: 'perSpent', h: 'Pts / $ spent', num: true, cell: r => fmt2(r.perSpent) },
   { k: 'perBudget', h: 'Pts / $ budget', num: true, cell: r => fmt2(r.perBudget) },
-  { k: 'rankSum', h: 'Rank sum', num: true, cell: r => r.rankSum },
+  { k: 'squadPct', h: 'Squad score', num: true, cell: r => fmt1(r.squadPct) },
+  { k: 'rankSum', h: 'Raw rank sum', num: true, cell: r => r.rankSum },
   { k: 'beat', h: 'Picks beating price', num: true, cell: r => `${r.beat} of ${r.n}` },
   { k: 'delta', h: 'Net places', num: true, cell: r => `<span class="${r.delta > 0 ? 'delta-pos' : r.delta < 0 ? 'delta-neg' : ''}">${r.delta > 0 ? '+' : ''}${r.delta}</span>` },
 ];
