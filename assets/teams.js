@@ -87,14 +87,26 @@ function wireTeamMarks(host, rows) {
 }
 
 /* Spend against return: the chart that makes an underspend obvious. */
-function teamScatter(host, rows) {
+function teamScatter(host, rows, opts = {}) {
+  const { exclude = [] } = opts;
+  const shown = rows.filter(r => !exclude.includes(r.id));
   const narrow = narrowHost(host);
   const W = narrow ? 350 : 760, H = narrow ? 320 : 420;
   const padL = narrow ? 44 : 54, padR = narrow ? 14 : 20, padT = 16, padB = narrow ? 46 : 50;
   const pw = W - padL - padR, ph = H - padT - padB;
-  const xt = ticks(0, BUDGET), yt = ticks(0, Math.max(...rows.map(r => r.pts)));
-  const hiX = Math.max(BUDGET, xt[xt.length - 1]), hiY = Math.max(...rows.map(r => r.pts), yt[yt.length - 1]);
-  const X = v => padL + (v / hiX) * pw;
+
+  // The x axis is fitted to the teams shown rather than anchored at $0. With
+  // the far outlier dropped nothing sits below $80, and holding the axis at
+  // zero would spend two thirds of the width on empty space -- which is the
+  // readability problem the exclusion is meant to solve. Truncating is fine on
+  // a scatter (unlike a bar, whose length encodes the value from zero); the
+  // axis title says where it starts.
+  const minCost = Math.min(...shown.map(r => r.cost));
+  const loX = Math.max(0, Math.floor((minCost - 5) / 10) * 10);
+  const hiX = BUDGET;
+  const yt = ticks(0, Math.max(...shown.map(r => r.pts)));
+  const hiY = Math.max(...shown.map(r => r.pts), yt[yt.length - 1]);
+  const X = v => padL + ((v - loX) / (hiX - loX)) * pw;
   const Y = v => padT + ph - (v / hiY) * ph;
 
   let s = '';
@@ -102,11 +114,14 @@ function teamScatter(host, rows) {
     s += `<line class="grid-line" x1="${padL}" y1="${Y(v)}" x2="${W - padR}" y2="${Y(v)}"/>`;
     s += `<text class="axis-text" x="${padL - 8}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
   });
-  xt.forEach(v => s += `<text class="axis-text" x="${X(v)}" y="${H - 28}" text-anchor="middle">$${v}</text>`);
-  s += `<text class="axis-title" x="${padL + pw / 2}" y="${H - 8}" text-anchor="middle">Auction dollars spent (of a $${BUDGET} budget)</text>`;
+  ticks(loX, hiX, 5).forEach(v => {
+    if (v < loX) return;
+    s += `<text class="axis-text" x="${X(v)}" y="${H - 28}" text-anchor="middle">$${v}</text>`;
+  });
+  s += `<text class="axis-title" x="${padL + pw / 2}" y="${H - 8}" text-anchor="middle">Auction dollars spent (axis starts at $${loX} of a $${BUDGET} budget)</text>`;
   s += `<text class="axis-title" transform="translate(15,${padT + ph / 2}) rotate(-90)" text-anchor="middle">Points from the eight picks</text>`;
 
-  rows.forEach(r => {
+  shown.forEach(r => {
     s += `<circle class="mark" data-id="${r.id}" cx="${X(r.cost)}" cy="${Y(r.pts)}" r="6"
       fill="${r.out ? 'var(--text-muted)' : 'var(--pos-qb)'}"/>`;
   });
@@ -114,20 +129,27 @@ function teamScatter(host, rows) {
   // all just stacks text down the right-hand edge; these are the ones the chart
   // is actually about. The rest are named on hover and in the table.
   const notable = new Set([
-    ...rows.slice(0, 3).map(r => r.id),
-    ...rows.slice(-3).map(r => r.id),
-    ...rows.filter(r => r.unspent >= 20).map(r => r.id),
+    ...shown.slice(0, 3).map(r => r.id),
+    ...shown.slice(-3).map(r => r.id),
+    ...shown.filter(r => r.unspent >= 20).map(r => r.id),
   ]);
-  rows.filter(r => notable.has(r.id)).forEach(r => {
+  shown.filter(r => notable.has(r.id)).forEach(r => {
     const right = X(r.cost) < padL + pw * 0.72;
     s += `<text class="mark-label" x="${X(r.cost) + (right ? 10 : -10)}" y="${Y(r.pts) + 4}"
       text-anchor="${right ? 'start' : 'end'}">${esc(narrow ? shortTeam(r.name) : r.name)}</text>`;
   });
 
+  // Say what was left off, rather than dropping it silently.
+  const dropped = rows.filter(r => exclude.includes(r.id));
+  const note = dropped.length
+    ? `<p class="cap" style="margin-top:8px">Off the chart: ${dropped.map(r =>
+        `${esc(r.name)} (${money(r.cost)}, ${fmt1(r.pts)} pts)`).join(', ')} &mdash; too far left to plot
+        without squashing everyone else. Still in the ranking and the table above and below.</p>`
+    : '';
   host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img"
-    aria-label="Dollars spent against points returned, one dot per team">${s}</svg>`;
+    aria-label="Dollars spent against points returned, one dot per team">${s}</svg>${note}`;
   deCollide(host.querySelector('svg'));
-  wireTeamMarks(host, rows);
+  wireTeamMarks(host, shown);
 }
 
 /* Where each team's money went. Stacked, so adjacent-pair colour rules apply. */
@@ -174,6 +196,13 @@ function renderTeams() {
   const under = [...rows].sort((a, b) => b.unspent - a.unspent)[0];
   const avg = rows.reduce((s, r) => s + r.pts, 0) / rows.length;
 
+  // Keep the lone extreme off the scatter: at under half the next-lowest spend
+  // it pins the whole field against the right-hand edge. A rule rather than a
+  // hardcoded name, so it stops applying if spending ever evens out.
+  const bySpend = [...rows].sort((a, b) => a.cost - b.cost);
+  const offChart = (bySpend.length > 1 && bySpend[0].cost < bySpend[1].cost / 2)
+    ? [bySpend[0].id] : [];
+
   document.getElementById('app').innerHTML = `
   <header class="page">
     <div class="eyebrow">Andrew's Acquaintances &middot; midseason review &middot; through week ${REVIEW.through}</div>
@@ -204,9 +233,11 @@ function renderTeams() {
 
   <section>
     <h2>Spend against return</h2>
-    <p class="sub">The useful caveat to any &ldquo;points per dollar&rdquo; table. Unspent auction money buys
-    nothing &mdash; waivers run on a separate ${money(400)} pool &mdash; so a team sitting far to the left
-    did not get a bargain, it skipped the draft. Grey dots are eliminated teams.</p>
+    <p class="sub">The useful caveat to any &ldquo;points per dollar&rdquo; table: unspent auction money buys
+    nothing, because waivers run on a separate ${money(400)} pool. Sixteen of the nineteen spent between
+    ${money(186)} and ${money(200)}, so the real story is how little the spending varied &mdash; almost all
+    of the difference between these teams is <em>who</em> they bought, not how much they laid out. Grey dots
+    are eliminated teams.</p>
     <div class="card"><div id="scatter"></div></div>
   </section>
 
@@ -237,7 +268,7 @@ function renderTeams() {
       colorFor: r => r.out ? 'var(--text-muted)' : 'var(--pos-qb)',
       fmtVal: fmt1, note: r => r.out ? `  (out wk ${r.out})` : ''
     });
-    teamScatter(document.getElementById('scatter'), rows);
+    teamScatter(document.getElementById('scatter'), rows, { exclude: offChart });
     teamBars(document.getElementById('eff'), byEff, r => r.perSpent, {
       color: 'var(--pos-wr)', fmtVal: fmt2, note: r => `  (${money(r.cost)})`
     });

@@ -50,8 +50,16 @@ Max's team spent $30, tops the efficiency table at 11.89 pts/$, and finished
 dead last on production having been eliminated in week 2.
 
 Both numbers are on the page — the efficiency chart is there, with that caveat
-stated beside it, and the spend-against-return scatter exists mainly to make an
-underspend visible rather than flattering.
+stated beside it.
+
+The spend-against-return scatter leaves off any team spending under half the
+next-lowest, because one team at $30 against a field that mostly spent $186–200
+pins everyone else against the right-hand edge. The excluded team is named under
+the chart with its figures, and is still in the ranking, the tiles and the table.
+It's a rule rather than a hardcoded name, so it stops applying if spending ever
+evens out. The scatter's x axis is fitted to the teams shown rather than anchored
+at $0 for the same reason, and its title says where it starts; the y axis stays
+at zero, since points are a magnitude and the baseline is meaningful.
 
 Draft value and survival are deliberately separate: Russini's Side Piece has the
 best draft on this measure and was eliminated in week 8. A cut team's players
