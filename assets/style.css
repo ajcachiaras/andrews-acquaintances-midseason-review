@@ -20,6 +20,10 @@
   --div-pos: #2a78d6;  /* diverging: beat his price  */
   --div-neg: #e34948;  /* diverging: missed it       */
   --div-mid: #f0efec;
+  /* Slot 7, violet: a single-series hue for charts that aren't about a
+     position, so a bar never borrows a position's colour. 5.7:1 on this
+     surface, 5.6:1 on the dark one. */
+  --accent: #6250d6;
 
   --grid: #e6e4de;
   --ring: var(--surface-1);
@@ -44,6 +48,7 @@
     --div-pos: #3987e5;
     --div-neg: #e66767;
     --div-mid: #383835;
+    --accent: #9085e9;
 
     --grid: #302f2c;
   }
@@ -64,6 +69,7 @@
   --div-pos: #3987e5;
   --div-neg: #e66767;
   --div-mid: #383835;
+  --accent: #9085e9;
   --grid: #302f2c;
 }
 

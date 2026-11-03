@@ -18,6 +18,12 @@ function teamRows() {
   return Object.values(t).map(r => ({
     ...r,
     name: teamName(r.id),
+    // Sum of where each pick ranks at his own position. Nothing to do with
+    // money: purely how good the eight players turned out to be. Lower is
+    // better. avgPct is the same thing normalised by pool size, kept for the
+    // tooltip because the pools are very different (19 TEs against 60 WRs).
+    rankSum: r.picks.reduce((s, p) => s + p.ptsRank, 0),
+    avgPct: r.picks.reduce((s, p) => s + p.ptsRank / p.posN, 0) / r.picks.length,
     perSpent: r.cost ? r.pts / r.cost : 0,
     perBudget: r.pts / BUDGET,
     unspent: BUDGET - r.cost,
@@ -26,11 +32,16 @@ function teamRows() {
 }
 
 function teamTip(r) {
+  const mix = [...r.picks]
+    .sort((a, b) => POS_ORDER.indexOf(a.pos) - POS_ORDER.indexOf(b.pos) || a.ptsRank - b.ptsRank)
+    .map(p => `${p.pos}${p.ptsRank}`).join(' · ');
   return `<b>${esc(r.name)}</b>
     <div class="row">${fmt1(r.pts)} pts from ${r.n} picks</div>
     <div class="row">${money(r.cost)} spent${r.unspent > 0 ? `, ${money(r.unspent)} left unspent` : ''}</div>
     <div class="row">${fmt2(r.perSpent)} pts per $ spent &middot; ${fmt2(r.perBudget)} per $ of budget</div>
     <div class="row">${r.beat} of ${r.n} picks beating their price</div>
+    <div class="row">rank sum ${r.rankSum} &mdash; ${mix}</div>
+    <div class="row">average ${Math.round(r.avgPct * 100)}th percentile at his position</div>
     ${r.out ? `<div class="row">eliminated in week ${r.out}</div>` : ''}`;
 }
 
@@ -232,6 +243,18 @@ function renderTeams() {
   </section>
 
   <section>
+    <h2>Sum of positional ranks</h2>
+    <p class="sub">Each team's eight picks added up by where they rank at their own position &mdash;
+    QB4 plus RB19 plus WR27 and so on. No money in it at all: just how good the players turned out to be.
+    <strong>Lower is better</strong>, so the shortest bar is the best squad. Hover a bar for the full
+    breakdown. One caveat the measure can't dodge: the pools are different sizes, so a tight end can't rank
+    worse than ${byPos('TE').length} while a receiver can rank ${byPos('WR').length}th &mdash; a TE-heavy
+    team flatters itself here. The tooltip also gives each team's average percentile, which corrects for
+    that; it moves most teams by two places or fewer.</p>
+    <div class="card"><div id="ranksum"></div></div>
+  </section>
+
+  <section>
     <h2>Spend against return</h2>
     <p class="sub">The useful caveat to any &ldquo;points per dollar&rdquo; table: unspent auction money buys
     nothing, because waivers run on a separate ${money(400)} pool. Sixteen of the nineteen spent between
@@ -268,6 +291,9 @@ function renderTeams() {
       colorFor: r => r.out ? 'var(--text-muted)' : 'var(--pos-qb)',
       fmtVal: fmt1, note: r => r.out ? `  (out wk ${r.out})` : ''
     });
+    // Ascending: lowest rank sum is the best squad, so it leads.
+    teamBars(document.getElementById('ranksum'), [...rows].sort((a, b) => a.rankSum - b.rankSum),
+      r => r.rankSum, { color: 'var(--accent)', fmtVal: v => String(Math.round(v)) });
     teamScatter(document.getElementById('scatter'), rows, { exclude: offChart });
     teamBars(document.getElementById('eff'), byEff, r => r.perSpent, {
       color: 'var(--pos-wr)', fmtVal: fmt2, note: r => `  (${money(r.cost)})`
@@ -291,6 +317,7 @@ const TEAM_COLS = [
   { k: 'pts', h: 'Points', num: true, cell: r => fmt1(r.pts) },
   { k: 'perSpent', h: 'Pts / $ spent', num: true, cell: r => fmt2(r.perSpent) },
   { k: 'perBudget', h: 'Pts / $ budget', num: true, cell: r => fmt2(r.perBudget) },
+  { k: 'rankSum', h: 'Rank sum', num: true, cell: r => r.rankSum },
   { k: 'beat', h: 'Picks beating price', num: true, cell: r => `${r.beat} of ${r.n}` },
   { k: 'delta', h: 'Net places', num: true, cell: r => `<span class="${r.delta > 0 ? 'delta-pos' : r.delta < 0 ? 'delta-neg' : ''}">${r.delta > 0 ? '+' : ''}${r.delta}</span>` },
 ];

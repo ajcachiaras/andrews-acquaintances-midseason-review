@@ -15,7 +15,7 @@ Companion to the [Guillotine Watch tracker](https://github.com/ajcachiaras/andre
 |---|---|
 | `index.html` | League-wide: price-against-production for all four positions, the ten best and worst buys, and the top five drafts |
 | `qb.html` / `rb.html` / `wr.html` / `te.html` | That position ranked, with the price/production scatter, the paid-as-playing-as bars, and a sortable table |
-| `teams.html` | All nineteen teams ranked by what their eight picks produced, plus spend-against-return, per-dollar efficiency, and how each team split its budget across positions |
+| `teams.html` | All nineteen teams ranked by what their eight picks produced, plus sum of positional ranks, spend-against-return, per-dollar efficiency, and how each team split its budget across positions |
 
 Each positional page carries three views of the same players: a scatter of price
 against points with that position's own market line, a diverging bar of places
@@ -61,8 +61,21 @@ evens out. The scatter's x axis is fitted to the teams shown rather than anchore
 at $0 for the same reason, and its title says where it starts; the y axis stays
 at zero, since points are a magnitude and the baseline is meaningful.
 
+**Sum of positional ranks** is a money-free view of the same squads: add up where
+each of a team's eight picks ranks at his own position (QB4 + RB19 + WR27 + …).
+Lower is better. It deliberately ignores price entirely — it answers "how good
+are these eight players", not "were they worth it".
+
+Its one unavoidable flaw is pool size: 19 tight ends were drafted against 60
+receivers, so a TE can't rank worse than 19th while a receiver can rank 60th, and
+a TE-heavy roster flatters itself. Each team's average positional percentile is in
+the tooltip as the corrected version. The two orderings mostly agree — same first
+place, same bottom two, and all but one team within three places — the exception
+being Qadry Ismail's Womb, which took three tight ends and two quarterbacks and
+drops from 6th to 15th once pool size is accounted for.
+
 Draft value and survival are deliberately separate: Russini's Side Piece has the
-best draft on this measure and was eliminated in week 8. A cut team's players
+best draft on production and was eliminated in week 8. A cut team's players
 keep scoring for whoever claimed them, which is still what the draft bought.
 
 ## What counts
